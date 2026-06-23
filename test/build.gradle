@@ -1,0 +1,27 @@
+plugins {
+    id 'java-library'
+    id 'app.spellscroll.dev'
+}
+
+group = 'com.example'
+version = '1.0.0'
+
+repositories {
+    mavenCentral()
+}
+
+spellscroll {
+    pluginId   = 'com.example.test-plugin'
+    pluginName = 'Test Plugin'
+    apiVersion = '1.0.0'
+    // pluginVersion falls back to project.version ("1.0.0") if not set.
+    // If no project version is set, pluginVersion must be set manually.
+
+    // Override so the task doesn't fail if Spellscroll isn't installed locally.
+    // Remove or update this to match your actual install path.
+    spellscrollInstallDir = 'C:/Program Files/Spellscroll'
+
+    // UI module flag uses its default:
+    //   uiModuleDir             = "<rootProject>/ui-module"
+    //   ignoreDefaultPluginsDir = true
+}

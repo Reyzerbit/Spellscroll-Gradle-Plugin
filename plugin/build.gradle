@@ -1,0 +1,23 @@
+plugins {
+    id 'java-gradle-plugin'
+    id 'com.gradle.plugin-publish' version '2.1.1'
+}
+
+version = "1.0.0"
+group = "app.spellscroll"
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+}
+
+gradlePlugin {
+    plugins {
+        spellscrollGradle {
+            id = 'app.spellscroll.dev'
+            implementationClass = 'app.spellscroll.SpellscrollGradlePlugin'
+        }
+    }
+}

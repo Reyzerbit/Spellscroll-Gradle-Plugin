@@ -1,0 +1,8 @@
+pluginManagement {
+    // Treat the plugin subdirectory as a composite build so its plugin IDs
+    // are resolvable by any subproject in this repo via the plugins {} block.
+    includeBuild 'plugin'
+}
+
+rootProject.name = 'Spellscroll-Gradle'
+include('test')
