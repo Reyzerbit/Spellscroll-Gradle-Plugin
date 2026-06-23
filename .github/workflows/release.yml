@@ -20,6 +20,8 @@ jobs:
       - name: Extract tag
         id: tag
         run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
       - name: Publish to Gradle Plugin Portal
         run: ./gradlew --project-dir plugin publishPlugins -Pversion=${{ steps.tag.outputs.VERSION }}
         env:
