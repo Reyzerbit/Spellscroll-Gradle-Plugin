@@ -11,8 +11,33 @@ import org.gradle.api.plugins.JavaPluginExtension;
 import org.gradle.api.tasks.Copy;
 import org.gradle.api.tasks.TaskProvider;
 
+/**
+ * Main entry point for the Spellscroll Gradle plugin ({@code app.spellscroll.dev}).
+ *
+ * <p>Applying this plugin to a project:
+ * <ul>
+ *   <li>Registers the {@code spellscroll} extension ({@link SpellscrollGradleExtension}) for DSL configuration.</li>
+ *   <li>Registers the {@code generateSpellscrollBuildConfig}, {@code spellscrollDev},
+ *       {@code spellscrollBuildUi}, and {@code spellscrollInitUi} tasks.</li>
+ *   <li>When the {@code java} plugin is also applied: automatically adds {@code spellscroll-api}
+ *       as {@code compileOnly} + {@code annotationProcessor}, wires the generated constants source
+ *       into the main source set, and bundles the UI build output into {@code processResources}.</li>
+ * </ul>
+ *
+ * <p>Three properties are required in the {@code spellscroll} block:
+ * {@code pluginId}, {@code pluginName}, and {@code apiVersion}.
+ * A {@link org.gradle.api.GradleException} is thrown during {@code afterEvaluate} if any are absent.
+ */
 public class SpellscrollGradlePlugin implements Plugin<Project>
 {
+    /**
+     * Applies the plugin to the given {@link Project}.
+     *
+     * <p>This method registers the {@code spellscroll} extension, configures property defaults,
+     * registers all tasks, wires Java-plugin integrations, and validates required configuration.
+     *
+     * @param project the Gradle project to configure
+     */
     @Override
     public void apply(Project project)
     {
@@ -57,6 +82,17 @@ public class SpellscrollGradlePlugin implements Plugin<Project>
         });
     }
 
+    /**
+     * Sets convention values for optional extension properties.
+     *
+     * <p>Defaults are platform-aware: {@code spellscrollInstallDir} is set to
+     * {@code C:\Program Files\Spellscroll} on Windows and {@code ~/Applications} on MacOS.
+     * {@code pluginVersion} falls back to the Gradle {@code project.version} if the user has not
+     * set it explicitly.
+     *
+     * @param project the Gradle project (used to read {@code projectDir} and {@code version})
+     * @param ext     the extension whose conventions are being configured
+     */
     private void configureDefaults(Project project, SpellscrollGradleExtension ext)
     {
         boolean isWindows = System.getProperty("os.name").toLowerCase().contains("win");
@@ -68,6 +104,17 @@ public class SpellscrollGradlePlugin implements Plugin<Project>
         ext.getPluginVersion().convention(project.provider(() -> project.getVersion().toString()));
     }
 
+    /**
+     * Registers the {@code generateSpellscrollBuildConfig} task.
+     *
+     * <p>The task generates a {@code {PluginName}Constants.java} file containing {@code PLUGIN_ID},
+     * {@code PLUGIN_VERSION}, and {@code PLUGIN_NAME} as {@code static final String} fields.
+     * Output is written to {@code build/generated/sources/spellscroll/main/java}.
+     *
+     * @param project the target Gradle project
+     * @param ext     the configured Spellscroll extension
+     * @return a provider for the registered task, used to wire source-set and compile dependencies
+     */
     private TaskProvider<GenerateBuildConfigTask> registerGenerateBuildConfigTask(Project project, SpellscrollGradleExtension ext)
     {
         return project.getTasks().register("generateSpellscrollBuildConfig", GenerateBuildConfigTask.class, task ->
@@ -83,6 +130,16 @@ public class SpellscrollGradlePlugin implements Plugin<Project>
         });
     }
 
+    /**
+     * Registers the {@code spellscrollDev} task and wires it to depend on {@code jar}
+     * when the {@code java} plugin is present.
+     *
+     * <p>The task launches Spellscroll with the built plugin JAR, passing {@code --plugindir},
+     * {@code --dev-plugin}, and (conditionally) {@code --ignore-default-plugins-dir}.
+     *
+     * @param project the target Gradle project
+     * @param ext     the configured Spellscroll extension
+     */
     private void registerSpellscrollGradleTask(Project project, SpellscrollGradleExtension ext)
     {
         project.getTasks().register("spellscrollDev", SpellscrollDevTask.class, task ->
@@ -99,6 +156,18 @@ public class SpellscrollGradlePlugin implements Plugin<Project>
         project.getPluginManager().withPlugin("java", p -> project.getTasks().named("spellscrollDev").configure(t -> t.dependsOn("jar")));
     }
 
+    /**
+     * Registers the {@code spellscrollBuildUi} task and wires it into {@code processResources}
+     * when the {@code java} plugin is present.
+     *
+     * <p>The task runs {@code npm install} and {@code npm run build} in the configured UI module
+     * directory. Its output is copied into the JAR under {@code /ui} via {@code processResources}.
+     * The task is skipped silently if the UI module directory, {@code package.json}, or the
+     * {@code @spellscroll/ui-sdk} dependency is absent.
+     *
+     * @param project the target Gradle project
+     * @param ext     the configured Spellscroll extension
+     */
     private void registerSpellscrollBuildUiTask(Project project, SpellscrollGradleExtension ext)
     {
         TaskProvider<SpellscrollBuildUiTask> buildUiTask = project.getTasks().register(
@@ -122,6 +191,16 @@ public class SpellscrollGradlePlugin implements Plugin<Project>
             }));
     }
 
+    /**
+     * Registers the {@code spellscrollInitUi} task.
+     *
+     * <p>The task is a one-time scaffolding operation that creates {@code package.json},
+     * {@code spellscroll.config.js}, and {@code src/main.jsx} inside {@code uiModuleDir}.
+     * Existing files are skipped, so the task is safe to re-run.
+     *
+     * @param project the target Gradle project
+     * @param ext     the configured Spellscroll extension
+     */
     private void registerSpellscrollInitUiTask(Project project, SpellscrollGradleExtension ext)
     {
         project.getTasks().register("spellscrollInitUi", SpellscrollInitUiTask.class, task ->

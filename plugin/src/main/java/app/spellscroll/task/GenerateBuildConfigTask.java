@@ -11,31 +11,98 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.nio.file.Files;
 
+/**
+ * Gradle task that generates a Java constants class containing plugin metadata.
+ *
+ * <p>The generated class is named {@code {PluginName}Constants} (e.g. {@code MyPluginConstants})
+ * and is placed in the package derived from {@code project.group}. It exposes three
+ * {@code public static final String} fields: {@code PLUGIN_ID}, {@code PLUGIN_VERSION},
+ * and {@code PLUGIN_NAME}.
+ *
+ * <p>Example output for {@code group = 'com.example'} and {@code pluginName = 'My Plugin'}:
+ * <pre>{@code
+ * package com.example;
+ *
+ * public final class MyPluginConstants {
+ *     public static final String PLUGIN_ID      = "com.example.my-plugin";
+ *     public static final String PLUGIN_VERSION = "1.0.0";
+ *     public static final String PLUGIN_NAME    = "My Plugin";
+ *
+ *     private MyPluginConstants() {}
+ * }
+ * }</pre>
+ *
+ * <p>This task is annotated {@link CacheableTask} and only reruns when the build file or
+ * any of its inputs change. It is wired automatically into {@code compileJava} by
+ * {@link app.spellscroll.SpellscrollGradlePlugin}.
+ */
 @CacheableTask
 public abstract class GenerateBuildConfigTask extends DefaultTask
 {
+    /**
+     * The plugin identifier (registered at <a href="https://spellscroll.app">Spellscroll.app</a> under "Developer Tools")
+     * This identifier is always an all-lowercase alphanumeric only string.
+     * Embedded as {@code PLUGIN_ID} in the generated class.
+     *
+     * @return the plugin ID input property
+     */
     @Input
     public abstract Property<String> getPluginId();
 
+    /**
+     * Human-readable plugin name (e.g. {@code My Plugin}).
+     * Used to derive the generated class name and embedded as {@code PLUGIN_NAME}.
+     *
+     * @return the plugin name input property
+     */
     @Input
     public abstract Property<String> getPluginName();
 
+    /**
+     * Plugin version string (e.g. {@code 1.0.0}).
+     * Embedded as {@code PLUGIN_VERSION} in the generated class.
+     *
+     * @return the plugin version input property
+     */
     @Input
     public abstract Property<String> getPluginVersion();
 
+    /**
+     * Gradle {@code project.group} value used to derive the package name of the generated class.
+     * An empty or {@code unspecified} group produces a default-package class.
+     *
+     * @return the project group input property
+     */
     @Input
     public abstract Property<String> getProjectGroup();
 
     /**
-     * Declaring the build file as an input ensures regeneration whenever it changes.
+     * The project's {@code build.gradle} file, declared as an input so the task reruns
+     * whenever the build script changes.
+     *
+     * @return the build file input property
      */
     @InputFile
     @PathSensitive(PathSensitivity.NONE)
     public abstract RegularFileProperty getBuildFile();
 
+    /**
+     * The directory into which the generated {@code .java} file is written.
+     * Defaults to {@code build/generated/sources/spellscroll/main/java}.
+     *
+     * @return the output directory property
+     */
     @OutputDirectory
     public abstract DirectoryProperty getOutputDir();
 
+    /**
+     * Generates the {@code {PluginName}Constants.java} source file.
+     *
+     * <p>Creates the package directory structure as needed, then writes the class with
+     * {@code PLUGIN_ID}, {@code PLUGIN_VERSION}, and {@code PLUGIN_NAME} fields.
+     *
+     * @throws IOException if the output file cannot be written
+     */
     @TaskAction
     public void generate() throws IOException
     {
@@ -70,6 +137,15 @@ public abstract class GenerateBuildConfigTask extends DefaultTask
         getLogger().lifecycle("Generated {}", outputFile.getAbsolutePath());
     }
 
+    /**
+     * Converts a human-readable plugin name to a valid PascalCase Java class name.
+     *
+     * <p>Non-alphanumeric characters act as word separators; each following letter is
+     * uppercased. For example, {@code "My Plugin"} → {@code "MyPlugin"}.
+     *
+     * @param name the plugin name to convert
+     * @return a PascalCase identifier suitable for use as a Java class name
+     */
     private static String toClassName(String name)
     {
         StringBuilder sb = new StringBuilder();
@@ -86,11 +162,28 @@ public abstract class GenerateBuildConfigTask extends DefaultTask
         return sb.toString();
     }
 
+    /**
+     * Converts a Gradle {@code project.group} string to a valid Java package name.
+     *
+     * <p>Returns an empty string if the group is null, empty, or {@code "unspecified"},
+     * resulting in the class being placed in the default package.
+     * All characters that are not lowercase letters, digits, underscores, or dots are stripped.
+     *
+     * @param group the Gradle project group to convert
+     * @return a lowercase Java package name, or an empty string for the default package
+     */
     private static String toPackageName(String group)
     {
         if (group == null || group.isEmpty() || "unspecified".equals(group)) return "";
         return group.toLowerCase().replaceAll("[^a-z0-9._]", "");
     }
 
+    /**
+     * Escapes backslashes and double-quotes so that {@code value} can be safely embedded
+     * as a Java string literal.
+     *
+     * @param value the raw string to escape
+     * @return the escaped string
+     */
     private static String escape(String value) { return value.replace("\\", "\\\\").replace("\"", "\\\""); }
 }

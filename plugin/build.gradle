@@ -14,9 +14,14 @@ dependencies {
 }
 
 gradlePlugin {
+    website = "https://spellscroll.app"
+    vcsUrl = "https://github.com/Reyzerbit/Spellscroll-Gradle-Plugin"
     plugins {
-        spellscrollGradle {
+        register('spellscrollGradle') {
             id = 'app.spellscroll.dev'
+            displayName = 'Spellscroll Gradle Plugin'
+            description = 'A Gradle plugin for developing Spellscroll plugins. It wires up the Spellscroll API dependency, generates a constants class, builds your optional UI module, and launches the installed Spellscroll app with your plugin loaded for live development.'
+            tags.set(['sdk', 'extensions', 'ttrpg', 'plugins', 'spellscroll', 'modding'])
             implementationClass = 'app.spellscroll.SpellscrollGradlePlugin'
         }
     }
