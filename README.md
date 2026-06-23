@@ -112,9 +112,7 @@ Spellscroll.exe
   [--ignore-default-plugins-dir]
 ```
 
-Gradle blocks until the Spellscroll process exits. On Windows, a background thread watches for the Swing window to close and force-kills the process when it does (necessary because Spring Boot's non-daemon threads keep the JVM alive after the window is closed).
-
-Stopping the Gradle task (e.g. Ctrl+C) force-kills the Spellscroll process.
+Gradle blocks until the Spellscroll process exits. Stopping the Gradle task (e.g. Ctrl+C) force-kills the Spellscroll process.
 
 ---
 
