@@ -18,6 +18,10 @@ import java.util.*;
  */
 public class SpellscrollOAuthClient
 {
+    /*
+     *  NOTE: The Google Client ID and Secret are public ID/secret credentials for Desktop App/CLI authentication, and per
+     *  RFC 8252, because of the native nature of this tool, cannot be considered "confidential".
+     */
     private static final String GOOGLE_CLIENT_ID = "754087461473-tg46r85c5263oulfrcoe74u92c1a7465.apps.googleusercontent.com";
     private static final String GOOGLE_CLIENT_SECRET = "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";
     private static final String MICROSOFT_CLIENT_ID = "b95b4984-5e66-4f59-b094-cc208124a5a2";
