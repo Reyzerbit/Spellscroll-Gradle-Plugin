@@ -22,7 +22,7 @@ import java.util.List;
  * (populated by {@code spellscrollDownloadAssets} before this task runs). Builds the command:
  * <pre>
  * Spellscroll[.exe / .app]
- *   --plugindir      &lt;build/libs&gt;
+ *   --plugin-dir      &lt;build/libs&gt;
  *   --dev-plugin     &lt;pluginId&gt;
  *   [--ignore-default-plugins-dir]
  * </pre>
@@ -66,7 +66,7 @@ public abstract class SpellscrollDevTask extends DefaultTask
 
     /**
      * Absolute path to the Gradle {@code build/libs} directory, passed to Spellscroll
-     * via {@code --plugindir}. Marked {@code @Internal} because it is derived from the
+     * via {@code --plugin-dir}. Marked {@code @Internal} because it is derived from the
      * build directory and should not influence task up-to-date checks.
      *
      * @return the build libs directory property
@@ -102,7 +102,7 @@ public abstract class SpellscrollDevTask extends DefaultTask
 
         List<String> command = new ArrayList<>();
         command.add(spellscrollExe.getAbsolutePath());
-        command.add("--plugindir");
+        command.add("--plugin-dir");
         command.add(getBuildLibsDir().get());
         command.add("--dev-plugin");
         command.add(getPluginId().get());

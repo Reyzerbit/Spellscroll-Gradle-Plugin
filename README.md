@@ -121,7 +121,7 @@ Builds your plugin JAR and launches Spellscroll with it loaded in dev mode. The 
 
 ```
 Spellscroll.exe
-  --plugindir      <build/libs>
+  --plugin-dir      <build/libs>
   --dev-plugin     <pluginId>
   [--ignore-default-plugins-dir]
 ```

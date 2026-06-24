@@ -160,7 +160,7 @@ public class SpellscrollGradlePlugin implements Plugin<Project>
      * {@code spellscrollDownloadAssets} and {@code jar} (when the {@code java} plugin is present).
      *
      * <p>The task launches Spellscroll from the downloaded dev-assets cache directory, passing
-     * {@code --plugindir}, {@code --dev-plugin}, and (conditionally)
+     * {@code --plugin-dir}, {@code --dev-plugin}, and (conditionally)
      * {@code --ignore-default-plugins-dir}.
      *
      * @param project      the target Gradle project
