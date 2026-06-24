@@ -71,6 +71,20 @@ public abstract class SpellscrollGradleExtension {
     public abstract Property<String> getPluginVersion();
 
     /**
+     * Name of the build task that {@code spellscrollDev} depends on before launching.
+     *
+     * <p>Defaults to {@code "build"}. Override this when you want {@code spellscrollDev} to run a
+     * different lifecycle task instead — for example, set it to {@code "assemble"} to skip tests,
+     * or to any other task registered in the consumer project.
+     *
+     * <p>Only takes effect when the {@code java} plugin is also applied. Set to an empty string to
+     * disable the build task dependency entirely (not recommended).
+     *
+     * @return the build task name property
+     */
+    public abstract Property<String> getBuildTask();
+
+    /**
      * <b>Required.</b> Version of {@code spellscroll-api} to compile against (e.g. {@code 1.2.3}).
      * Must be {@code 1.1.0} or higher.
      *

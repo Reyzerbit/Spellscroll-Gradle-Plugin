@@ -98,6 +98,7 @@ public class SpellscrollGradlePlugin implements Plugin<Project>
     {
         ext.getUiModuleDir().convention(project.getProjectDir().getAbsolutePath() + "/ui-module");
         ext.getIgnoreDefaultPluginsDir().convention(true);
+        ext.getBuildTask().convention("build");
         // Falls back to project.version if the user doesn't explicitly set pluginVersion
         ext.getPluginVersion().convention(project.provider(() -> project.getVersion().toString()));
     }
@@ -157,11 +158,16 @@ public class SpellscrollGradlePlugin implements Plugin<Project>
 
     /**
      * Registers the {@code spellscrollDev} task and wires it to depend on
-     * {@code spellscrollDownloadAssets} and {@code jar} (when the {@code java} plugin is present).
+     * {@code spellscrollDownloadAssets}, {@code jar}, and the configured build task
+     * (when the {@code java} plugin is present).
      *
      * <p>The task launches Spellscroll from the downloaded dev-assets cache directory, passing
      * {@code --plugin-dir}, {@code --dev-plugin}, and (conditionally)
      * {@code --ignore-default-plugins-dir}.
+     *
+     * <p>The build task dependency defaults to {@code "build"} and can be overridden via
+     * {@link SpellscrollGradleExtension#getBuildTask()}. Set it to an empty string to disable
+     * the build task dependency entirely.
      *
      * @param project      the target Gradle project
      * @param ext          the configured Spellscroll extension
@@ -181,9 +187,19 @@ public class SpellscrollGradlePlugin implements Plugin<Project>
             task.dependsOn(downloadTask);
         });
 
-        // Depend on jar only when the java plugin is present
+        // Depend on jar and the configured build task when the java plugin is present
         project.getPluginManager().withPlugin("java", p ->
-            project.getTasks().named("spellscrollDev").configure(t -> t.dependsOn("jar")));
+        {
+            project.getTasks().named("spellscrollDev").configure(t -> t.dependsOn("jar"));
+            project.afterEvaluate(proj ->
+            {
+                String buildTaskName = ext.getBuildTask().getOrElse("build");
+                if (buildTaskName != null && !buildTaskName.isEmpty())
+                {
+                    proj.getTasks().named("spellscrollDev").configure(t -> t.dependsOn(buildTaskName));
+                }
+            });
+        });
     }
 
     /**

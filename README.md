@@ -30,6 +30,7 @@ spellscroll {
     pluginVersion           = project.version                        // falls back to project.version if unset
     uiModuleDir             = "${rootProject.projectDir}/ui-module"
     ignoreDefaultPluginsDir = true
+    buildTask               = 'build'                                // task spellscrollDev depends on before launching
 }
 ```
 
@@ -43,6 +44,7 @@ spellscroll {
 | `pluginVersion` | No | `project.version` | Plugin version; must be set explicitly if `project.version` is unspecified |
 | `uiModuleDir` | No | `<rootProjectDir>/ui-module` | Path to your UI module npm project |
 | `ignoreDefaultPluginsDir` | No | `true` | Passes `--ignore-default-plugins-dir` to Spellscroll on launch |
+| `buildTask` | No | `'build'` | Task that `spellscrollDev` depends on before launching (e.g. `'assemble'` to skip tests). Set to an empty string to disable. |
 
 ## Automatic Behaviors
 
@@ -66,9 +68,9 @@ This gives you access to the full plugin API at compile time without bundling it
 
 If you have a UI module, `spellscrollBuildUi` runs as part of `processResources`. Its output is copied into the JAR under `/ui`, making the built frontend accessible at runtime as a classpath resource.
 
-**JAR dependency for launch**
+**Build dependency for launch**
 
-`spellscrollDev` automatically depends on `jar`, so your plugin is always rebuilt before the app is launched.
+`spellscrollDev` automatically depends on the `build` task (configurable via `buildTask`), so your project is fully built before the app is launched. This includes `jar` as a transitive dependency. Set `buildTask = 'assemble'` to skip tests, or set it to an empty string to disable the dependency entirely.
 
 ## Tasks
 
@@ -117,7 +119,7 @@ The first time this task runs it will open a browser window asking you to sign i
 
 ### `spellscrollDev`
 
-Builds your plugin JAR and launches Spellscroll with it loaded in dev mode. The dev runtime is sourced from the local cache populated by `spellscrollDownloadAssets`. Spellscroll is launched with the following flags:
+Runs the `build` task (or the task configured via `buildTask`) and launches Spellscroll with your plugin loaded in dev mode. The dev runtime is sourced from the local cache populated by `spellscrollDownloadAssets`. Spellscroll is launched with the following flags:
 
 ```
 Spellscroll.exe
@@ -127,6 +129,14 @@ Spellscroll.exe
 ```
 
 Gradle blocks until the Spellscroll process exits. Stopping the Gradle task (e.g. Ctrl+C) force-kills the Spellscroll process.
+
+To use a different build task (e.g. to skip tests):
+
+```groovy
+spellscroll {
+    buildTask = 'assemble'
+}
+```
 
 ---
 
