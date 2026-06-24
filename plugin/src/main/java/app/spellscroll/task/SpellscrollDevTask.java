@@ -18,9 +18,10 @@ import java.util.List;
 /**
  * Gradle task that launches the Spellscroll application with the plugin loaded in dev mode.
  *
- * <p>Builds the command:
+ * <p>The Spellscroll executable is resolved from the downloaded dev-assets cache directory
+ * (populated by {@code spellscrollDownloadAssets} before this task runs). Builds the command:
  * <pre>
- * Spellscroll[.exe/.app]
+ * Spellscroll[.exe / .app]
  *   --plugindir      &lt;build/libs&gt;
  *   --dev-plugin     &lt;pluginId&gt;
  *   [--ignore-default-plugins-dir]
@@ -30,21 +31,21 @@ import java.util.List;
  * (e.g. Ctrl+C) force-kills the child process. Subprocess stdout and stderr are
  * merged and forwarded to the Gradle console via a daemon thread.
  *
- * <p>This task automatically depends on {@code jar} when the {@code java} plugin is present,
- * ensuring the plugin JAR is up-to-date before launch. Caching is disabled because the task
- * produces no outputs — it runs an interactive application.
+ * <p>This task automatically depends on {@code spellscrollDownloadAssets} and {@code jar}
+ * (when the {@code java} plugin is present). Caching is disabled because the task produces
+ * no outputs — it runs an interactive application.
  */
 @DisableCachingByDefault(because = "Launches an interactive application process")
 public abstract class SpellscrollDevTask extends DefaultTask
 {
     /**
-     * Path to the Spellscroll installation directory.
-     * The executable is resolved relative to this directory.
+     * Path to the downloaded dev-assets cache directory.
+     * Provided by the {@code spellscrollDownloadAssets} task.
      *
-     * @return the Spellscroll install directory property
+     * @return the dev-assets directory property
      */
     @Input
-    public abstract Property<String> getSpellscrollInstallDir();
+    public abstract Property<String> getDevAssetsDir();
 
     /**
      * The plugin identifier passed to Spellscroll via {@code --dev-plugin}.
@@ -74,7 +75,8 @@ public abstract class SpellscrollDevTask extends DefaultTask
     public abstract Property<String> getBuildLibsDir();
 
     /**
-     * Resolves the Spellscroll executable, builds the launch command, and starts the process.
+     * Resolves the Spellscroll executable from the dev-assets cache, builds the launch
+     * command, and starts the process.
      *
      * <p>A daemon thread reads the subprocess output and forwards it to the console.
      * The task blocks until the process exits. On {@link InterruptedException}, the process
@@ -82,7 +84,7 @@ public abstract class SpellscrollDevTask extends DefaultTask
      *
      * @throws IOException          if the process cannot be started
      * @throws InterruptedException if the current thread is interrupted while waiting for the process
-     * @throws org.gradle.api.GradleException if the Spellscroll executable is not found
+     * @throws GradleException      if the Spellscroll executable is not found in the cache dir
      */
     @TaskAction
     public void launch() throws IOException, InterruptedException
@@ -92,7 +94,10 @@ public abstract class SpellscrollDevTask extends DefaultTask
         File spellscrollExe = resolveExecutable(isWindows);
         if (!spellscrollExe.exists())
         {
-            throw new GradleException("Spellscroll executable not found at: " + spellscrollExe.getAbsolutePath() + "\nSet 'spellscrollInstallDir' in your SpellscrollGradle {} block.");
+            throw new GradleException(
+                "Spellscroll executable not found at: " + spellscrollExe.getAbsolutePath() + "\n" +
+                "The dev assets may be corrupt — delete ~/.spellscroll/dev-cache and re-run " +
+                "'spellscrollDownloadAssets' to re-download.");
         }
 
         List<String> command = new ArrayList<>();
@@ -101,7 +106,8 @@ public abstract class SpellscrollDevTask extends DefaultTask
         command.add(getBuildLibsDir().get());
         command.add("--dev-plugin");
         command.add(getPluginId().get());
-        if (Boolean.TRUE.equals(getIgnoreDefaultPluginsDir().get())) command.add("--ignore-default-plugins-dir");
+        if (Boolean.TRUE.equals(getIgnoreDefaultPluginsDir().get()))
+            command.add("--ignore-default-plugins-dir");
 
         getLogger().lifecycle("Launching: {}", String.join(" ", command));
         Process spellscroll = new ProcessBuilder(command)
@@ -111,7 +117,8 @@ public abstract class SpellscrollDevTask extends DefaultTask
 
         Thread outputForwarder = new Thread(() ->
         {
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(spellscroll.getInputStream())))
+            try (BufferedReader reader = new BufferedReader(
+                     new InputStreamReader(spellscroll.getInputStream())))
             {
                 String line;
                 while ((line = reader.readLine()) != null) System.out.println(line);
@@ -131,11 +138,11 @@ public abstract class SpellscrollDevTask extends DefaultTask
     }
 
     /**
-     * Resolves the full path to the Spellscroll executable based on the platform.
+     * Resolves the full path to the Spellscroll executable within the dev-assets cache directory.
      *
      * <ul>
-     *   <li>Windows: {@code <spellscrollInstallDir>/Spellscroll.exe}</li>
-     *   <li>macOS/Linux: {@code <spellscrollInstallDir>/Spellscroll.app/Contents/MacOS/Spellscroll}</li>
+     *   <li>Windows: {@code <devAssetsDir>/Spellscroll.exe}</li>
+     *   <li>macOS/Linux: {@code <devAssetsDir>/Spellscroll.app/Contents/MacOS/Spellscroll}</li>
      * </ul>
      *
      * @param isWindows {@code true} when running on Windows
@@ -143,15 +150,15 @@ public abstract class SpellscrollDevTask extends DefaultTask
      */
     private File resolveExecutable(boolean isWindows)
     {
-        String installDir = getSpellscrollInstallDir().get();
-        String relativePath = isWindows ? "Spellscroll.exe" : "Spellscroll.app/Contents/MacOS/Spellscroll";
-        return new File(installDir, relativePath);
+        String assetsDir    = getDevAssetsDir().get();
+        String relativePath = isWindows
+            ? "Spellscroll.exe"
+            : "Spellscroll.app/Contents/MacOS/Spellscroll";
+        return new File(assetsDir, relativePath);
     }
 
-    /**
-     * Returns {@code true} when the current JVM is running on Windows.
-     *
-     * @return {@code true} on Windows, {@code false} otherwise
-     */
-    private static boolean isWindows() { return System.getProperty("os.name").toLowerCase().contains("win"); }
+    private static boolean isWindows()
+    {
+        return System.getProperty("os.name").toLowerCase().contains("win");
+    }
 }

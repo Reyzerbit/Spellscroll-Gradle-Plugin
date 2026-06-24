@@ -1,6 +1,8 @@
 # SpellscrollDev Gradle Plugin
+![Gradle Plugin Portal Version](https://img.shields.io/gradle-plugin-portal/v/app.spellscroll.dev)
 
-A Gradle plugin for developing Spellscroll plugins. It wires up the Spellscroll API dependency, generates a constants class, builds your optional UI module, and launches the installed Spellscroll app with your plugin loaded for live development.
+
+A Gradle plugin for developing Spellscroll plugins. It wires up the Spellscroll API dependency, generates a constants class, builds your optional UI module, downloads the Spellscroll dev runtime, and launches it with your plugin loaded for live development.
 
 ## Applying the Plugin
 
@@ -22,11 +24,10 @@ spellscroll {
     // REQUIRED
     pluginId   = 'com.example.my-plugin'   // reverse-domain plugin identifier
     pluginName = 'My Plugin'               // human-readable name
-    apiVersion = '1.1.0'                   // spellscroll-api version to compile against
+    apiVersion = '1.1.0'                   // spellscroll-api version to compile against (1.1.0 minimum)
 
     // Optional — defaults shown
-    pluginVersion           = project.version           // falls back to project.version if unset
-    spellscrollInstallDir   = 'C:/Program Files/Spellscroll'  // ~/Applications on macOS
+    pluginVersion           = project.version                        // falls back to project.version if unset
     uiModuleDir             = "${rootProject.projectDir}/ui-module"
     ignoreDefaultPluginsDir = true
 }
@@ -38,9 +39,8 @@ spellscroll {
 |---|---|---|---|
 | `pluginId` | Yes | — | Reverse-domain plugin ID, e.g. `com.example.my-plugin` |
 | `pluginName` | Yes | — | Human-readable name, e.g. `My Plugin` |
-| `apiVersion` | Yes | — | Version of `spellscroll-api` to depend on |
+| `apiVersion` | Yes | — | Version of `spellscroll-api` to depend on (must be `1.1.0` or higher) |
 | `pluginVersion` | No | `project.version` | Plugin version; must be set explicitly if `project.version` is unspecified |
-| `spellscrollInstallDir` | No | `C:/Program Files/Spellscroll` (Win) / `~/Applications` (macOS) | Path to your Spellscroll installation |
 | `uiModuleDir` | No | `<rootProjectDir>/ui-module` | Path to your UI module npm project |
 | `ignoreDefaultPluginsDir` | No | `true` | Passes `--ignore-default-plugins-dir` to Spellscroll on launch |
 
@@ -101,9 +101,23 @@ This task is cacheable — it only reruns when your `build.gradle` or the releva
 
 ---
 
+### `spellscrollDownloadAssets`
+
+Downloads the Spellscroll dev runtime for the current OS and configured `apiVersion`, then extracts it to:
+
+```
+~/.spellscroll/dev-cache/<apiVersion>/<os>/
+```
+
+The first time this task runs it will open a browser window asking you to sign in with Google or Microsoft. After a successful sign-in the credentials are stored in the OS native credential store and subsequent runs are silent (unless the token expires). The download itself is skipped on subsequent runs if the assets for the requested version are already present on disk.
+
+`spellscrollDev` depends on this task automatically, so you rarely need to invoke it directly.
+
+---
+
 ### `spellscrollDev`
 
-Builds your plugin JAR and launches Spellscroll with it loaded in dev mode. The app is launched from the `spellscrollInstallDir` with the following flags:
+Builds your plugin JAR and launches Spellscroll with it loaded in dev mode. The dev runtime is sourced from the local cache populated by `spellscrollDownloadAssets`. Spellscroll is launched with the following flags:
 
 ```
 Spellscroll.exe
@@ -176,9 +190,6 @@ spellscroll {
     pluginId   = 'com.example.my-plugin'
     pluginName = 'My Plugin'
     apiVersion = '1.1.0'
-
-    // Only needed if Spellscroll is installed somewhere non-standard
-    // spellscrollInstallDir = 'D:/Apps/Spellscroll'
 }
 ```
 

@@ -21,17 +21,6 @@ import org.gradle.api.provider.Property;
 public abstract class SpellscrollGradleExtension {
 
     /**
-     * Path to the Spellscroll installation directory.
-     *
-     * <p>Defaults to {@code C:\Program Files\Spellscroll} on Windows and
-     * {@code ~/Applications} on MacOS. Override when Spellscroll is installed
-     * at a non-standard location.
-     *
-     * @return the Spellscroll install directory property
-     */
-    public abstract Property<String> getSpellscrollInstallDir();
-
-    /**
      * Path to the UI module npm project directory.
      *
      * <p>Defaults to {@code <projectDir>/ui-module}. The directory does not need to exist;
@@ -83,6 +72,7 @@ public abstract class SpellscrollGradleExtension {
 
     /**
      * <b>Required.</b> Version of {@code spellscroll-api} to compile against (e.g. {@code 1.2.3}).
+     * Must be {@code 1.1.0} or higher.
      *
      * <p>The plugin automatically adds {@code app.spellscroll:spellscroll-api:<apiVersion>}
      * as both {@code compileOnly} and {@code annotationProcessor} when the {@code java} plugin

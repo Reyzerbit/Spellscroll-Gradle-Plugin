@@ -3,6 +3,7 @@ package app.spellscroll;
 import app.spellscroll.task.GenerateBuildConfigTask;
 import app.spellscroll.task.SpellscrollBuildUiTask;
 import app.spellscroll.task.SpellscrollDevTask;
+import app.spellscroll.task.SpellscrollDownloadAssetsTask;
 import app.spellscroll.task.SpellscrollInitUiTask;
 import org.gradle.api.GradleException;
 import org.gradle.api.Plugin;
@@ -17,8 +18,8 @@ import org.gradle.api.tasks.TaskProvider;
  * <p>Applying this plugin to a project:
  * <ul>
  *   <li>Registers the {@code spellscroll} extension ({@link SpellscrollGradleExtension}) for DSL configuration.</li>
- *   <li>Registers the {@code generateSpellscrollBuildConfig}, {@code spellscrollDev},
- *       {@code spellscrollBuildUi}, and {@code spellscrollInitUi} tasks.</li>
+ *   <li>Registers the {@code generateSpellscrollBuildConfig}, {@code spellscrollDownloadAssets},
+ *       {@code spellscrollDev}, {@code spellscrollBuildUi}, and {@code spellscrollInitUi} tasks.</li>
  *   <li>When the {@code java} plugin is also applied: automatically adds {@code spellscroll-api}
  *       as {@code compileOnly} + {@code annotationProcessor}, wires the generated constants source
  *       into the main source set, and bundles the UI build output into {@code processResources}.</li>
@@ -46,7 +47,8 @@ public class SpellscrollGradlePlugin implements Plugin<Project>
         configureDefaults(project, ext);
 
         TaskProvider<GenerateBuildConfigTask> generateConfigTask = registerGenerateBuildConfigTask(project, ext);
-        registerSpellscrollGradleTask(project, ext);
+        TaskProvider<SpellscrollDownloadAssetsTask> downloadTask = registerDownloadAssetsTask(project, ext);
+        registerSpellscrollDevTask(project, ext, downloadTask);
         registerSpellscrollBuildUiTask(project, ext);
         registerSpellscrollInitUiTask(project, ext);
 
@@ -79,25 +81,21 @@ public class SpellscrollGradlePlugin implements Plugin<Project>
             if (!ext.getPluginId().isPresent()) throw new GradleException("spellscroll.pluginId is required. Add it to your spellscroll {} block.");
             if (!ext.getPluginName().isPresent()) throw new GradleException("spellscroll.pluginName is required. Add it to your spellscroll {} block.");
             if (!ext.getApiVersion().isPresent()) throw new GradleException("spellscroll.apiVersion is required. Add it to your spellscroll {} block.");
+            if (isVersionLessThan(ext.getApiVersion().get(), "1.1.0")) throw new GradleException("spellscroll.apiVersion must be 1.1.0 or higher.");
         });
     }
 
     /**
      * Sets convention values for optional extension properties.
      *
-     * <p>Defaults are platform-aware: {@code spellscrollInstallDir} is set to
-     * {@code C:\Program Files\Spellscroll} on Windows and {@code ~/Applications} on MacOS.
-     * {@code pluginVersion} falls back to the Gradle {@code project.version} if the user has not
-     * set it explicitly.
+     * <p>{@code pluginVersion} falls back to the Gradle {@code project.version} if the user has
+     * not set it explicitly.
      *
      * @param project the Gradle project (used to read {@code projectDir} and {@code version})
      * @param ext     the extension whose conventions are being configured
      */
     private void configureDefaults(Project project, SpellscrollGradleExtension ext)
     {
-        boolean isWindows = System.getProperty("os.name").toLowerCase().contains("win");
-
-        ext.getSpellscrollInstallDir().convention(isWindows ? "C:\\Program Files\\Spellscroll" : "~/Applications");
         ext.getUiModuleDir().convention(project.getProjectDir().getAbsolutePath() + "/ui-module");
         ext.getIgnoreDefaultPluginsDir().convention(true);
         // Falls back to project.version if the user doesn't explicitly set pluginVersion
@@ -131,29 +129,61 @@ public class SpellscrollGradlePlugin implements Plugin<Project>
     }
 
     /**
-     * Registers the {@code spellscrollDev} task and wires it to depend on {@code jar}
-     * when the {@code java} plugin is present.
+     * Registers the {@code spellscrollDownloadAssets} task.
      *
-     * <p>The task launches Spellscroll with the built plugin JAR, passing {@code --plugindir},
-     * {@code --dev-plugin}, and (conditionally) {@code --ignore-default-plugins-dir}.
+     * <p>The task authenticates with the Spellscroll server via OAuth2 (Google or Microsoft),
+     * downloads the dev assets zip for the current OS and configured API version, and extracts
+     * them to {@code ~/.spellscroll/dev-cache/<version>/<os>/}. The download is skipped when
+     * a {@code .downloaded} marker file is already present in that directory.
      *
      * @param project the target Gradle project
      * @param ext     the configured Spellscroll extension
+     * @return a provider for the registered task, used to wire it as a dependency of {@code spellscrollDev}
      */
-    private void registerSpellscrollGradleTask(Project project, SpellscrollGradleExtension ext)
+    private TaskProvider<SpellscrollDownloadAssetsTask> registerDownloadAssetsTask(Project project, SpellscrollGradleExtension ext)
+    {
+        return project.getTasks().register("spellscrollDownloadAssets", SpellscrollDownloadAssetsTask.class, task ->
+        {
+            task.setGroup("spellscroll");
+            task.setDescription("Downloads Spellscroll dev assets for the current OS and API version.");
+            task.getApiVersion().set(ext.getApiVersion());
+
+            boolean isWindows = System.getProperty("os.name").toLowerCase().contains("win");
+            String os = isWindows ? "win" : "mac";
+            task.getDevAssetsCacheDir().set(ext.getApiVersion().map(version ->
+                System.getProperty("user.home") + "/.spellscroll/dev-cache/" + version + "/" + os));
+        });
+    }
+
+    /**
+     * Registers the {@code spellscrollDev} task and wires it to depend on
+     * {@code spellscrollDownloadAssets} and {@code jar} (when the {@code java} plugin is present).
+     *
+     * <p>The task launches Spellscroll from the downloaded dev-assets cache directory, passing
+     * {@code --plugindir}, {@code --dev-plugin}, and (conditionally)
+     * {@code --ignore-default-plugins-dir}.
+     *
+     * @param project      the target Gradle project
+     * @param ext          the configured Spellscroll extension
+     * @param downloadTask the download task whose cache dir is passed to the dev task
+     */
+    private void registerSpellscrollDevTask(Project project, SpellscrollGradleExtension ext,
+                                             TaskProvider<SpellscrollDownloadAssetsTask> downloadTask)
     {
         project.getTasks().register("spellscrollDev", SpellscrollDevTask.class, task ->
         {
             task.setGroup("spellscroll");
             task.setDescription("Launches Spellscroll with the plugin loaded in dev mode.");
-            task.getSpellscrollInstallDir().set(ext.getSpellscrollInstallDir());
+            task.getDevAssetsDir().set(downloadTask.flatMap(SpellscrollDownloadAssetsTask::getDevAssetsCacheDir));
             task.getPluginId().set(ext.getPluginId());
             task.getIgnoreDefaultPluginsDir().set(ext.getIgnoreDefaultPluginsDir());
             task.getBuildLibsDir().set(project.getLayout().getBuildDirectory().dir("libs").map(d -> d.getAsFile().getAbsolutePath()));
+            task.dependsOn(downloadTask);
         });
 
         // Depend on jar only when the java plugin is present
-        project.getPluginManager().withPlugin("java", p -> project.getTasks().named("spellscrollDev").configure(t -> t.dependsOn("jar")));
+        project.getPluginManager().withPlugin("java", p ->
+            project.getTasks().named("spellscrollDev").configure(t -> t.dependsOn("jar")));
     }
 
     /**
@@ -210,5 +240,19 @@ public class SpellscrollGradlePlugin implements Plugin<Project>
             task.getUiModuleDir().set(ext.getUiModuleDir());
             task.getPluginName().set(ext.getPluginName());
         });
+    }
+
+    private static boolean isVersionLessThan(String version, String minimum)
+    {
+        String[] vParts = version.split("\\.");
+        String[] mParts = minimum.split("\\.");
+        int len = Math.max(vParts.length, mParts.length);
+        for (int i = 0; i < len; i++)
+        {
+            int v = i < vParts.length ? Integer.parseInt(vParts[i]) : 0;
+            int m = i < mParts.length ? Integer.parseInt(mParts[i]) : 0;
+            if (v != m) return v < m;
+        }
+        return false;
     }
 }
